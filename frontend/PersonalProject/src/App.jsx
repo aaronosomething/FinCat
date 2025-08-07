@@ -13,12 +13,7 @@ const drawerWidth = 90;
 
 function App({mode, setMode}) {
   const [user, setUser] = useState(useLoaderData);
-  // const navigate = useNavigate();
-  // useEffect(() => {
-  //   if (user) {
-  //     navigate('/dashboard');
-  //   }
-  // })
+
   const contextObj = {user, setUser}
 
   return (
@@ -30,6 +25,7 @@ function App({mode, setMode}) {
           flexGrow: 1,
           p: 3,
           mt: 8,
+          width: '100%'
         }}
       >
         <Outlet context = {contextObj}/>

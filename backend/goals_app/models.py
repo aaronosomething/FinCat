@@ -8,4 +8,5 @@ class Goal(models.Model):
     goal_name = models.CharField(max_length=120)
     is_favorite = models.BooleanField(default=False)
     is_complete = models.BooleanField(default=False)
+    is_long_term = models.BooleanField(default=False)
 # Create your models here.

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Grid, Box, Typography, } from '@mui/material';
 import { Navigate, useNavigate } from 'react-router-dom';
+import FavoriteGoalsCard from '../components/FavoriteGoalsCard';
+import GoalsPage from './GoalsPage';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -67,22 +69,8 @@ export default function DashboardPage() {
 
       {/* Box 3 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Box onClick={handleNavigateToGoals}
-          sx={{
-            height: '400px',
-            width: '400px',
-            border: '2px dotted grey',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            boxSizing: 'border-box',
-            backgroundColor: 'lightcoral',
-            cursor: 'pointer',
-          }}
-        >
-          Goals
+        <Box onClick={handleNavigateToGoals} p={4}>
+          <FavoriteGoalsCard/>
         </Box>
       </Grid>
 
