@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'user_app',
     'goals_app',
     'budget_app',
+    'networth_app',
     'rest_framework',
     'rest_framework.authtoken',
 ]

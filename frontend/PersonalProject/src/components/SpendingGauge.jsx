@@ -80,33 +80,20 @@ export default function SpendingGauge({ totalIncome = 0, totalDeductions = 0, to
         <Box
             sx={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: 2,
-                // ensure gauge & text do not push layout unexpectedly
                 width: '90%',
-                boxSizing: 'border-box',
                 maxWidth: 800,
-                mr: 5,
+                mx: 'auto',
             }}
         >
-            {/* Left text */}
-            <Box sx={{ flex: '1 1 200px', minWidth: 110 }}>
-                <Typography variant="subtitle1" sx={{ color: textColor, fontWeight: 600 }}>
-                    You are spending {display} of your earned income
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Based on income: ${totalIncome}, deductions: ${totalDeductions}, and expenses: ${totalExpenses}.
-                </Typography>
-            </Box>
-
-            {/* Gauge container (fixed baseline as requested) */}
-            <Box sx={{ width: 300, height: 300, flexShrink: 0 }}>
+            {/* Gauge */}
+            <Box sx={{ width: 300, height: 300 }}>
                 <GaugeContainer
                     width={300}
                     height={300}
                     startAngle={-100}
                     endAngle={100}
-                    // Gauge expects a 0-100 range by default; we pass our computed gaugeValue
                     value={gaugeValue}
                     valueMin={0}
                     valueMax={100}
@@ -119,10 +106,23 @@ export default function SpendingGauge({ totalIncome = 0, totalDeductions = 0, to
                     <GaugeReferenceArc />
                     <GaugeValueArc skipAnimation={false} />
                     <GaugePointer />
-                    {/* center text */}
-                    {/* <GaugeValueText text={() => (display === 'N/A' ? 'N/A' : `${Math.round(gaugeValue)}%`)} /> */}
                 </GaugeContainer>
             </Box>
+
+            {/* Centered Text Underneath */}
+            <Typography
+                variant="h6"
+                sx={{ color: textColor, fontWeight: 600, textAlign: 'center', mt: -4}}
+            >
+                You are spending {display} of your earned income
+            </Typography>
+            <Typography
+                variant="subtitle1"
+                color="text.secondary"
+                sx={{ textAlign: 'center', mt: 1 }}
+            >
+                Based on income: ${totalIncome}, deductions: ${totalDeductions}, and expenses: ${totalExpenses}.
+            </Typography>
         </Box>
     );
 }

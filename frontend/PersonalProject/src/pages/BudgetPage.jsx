@@ -141,7 +141,7 @@ export default function BudgetPage() {
       ro.disconnect();
       window.removeEventListener('resize', updateHeight);
     };
-  // Re-run when these change (list content may change heights)
+    // Re-run when these change (list content may change heights)
   }, [income, deductions, isRemoveMode, isMdUp, theme]);
 
   // --- Render list items ---
@@ -261,12 +261,13 @@ export default function BudgetPage() {
             "income"
             "deductions"
             "expenses"
+            "chart"
             "footer"
           `,
           md: `
             "header header"
             "income expenses"
-            "deductions expenses"
+            "deductions chart"
             "footer footer"
           `,
         },
@@ -344,12 +345,28 @@ export default function BudgetPage() {
       </Box>
 
       {/* Footer */}
-      <Box sx={{ gridArea: 'footer', display: 'flex', textAlign: 'center', justifyContent: 'center', alignItems: 'center', width: '100%', mt: 0, mr: 2, ml: 2}}>
+      <Box sx={{ gridArea: 'chart', display: 'flex', textAlign: 'center', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+        <Paper
+          elevation={3}
+          sx={{
+            p: 2,
+            pt: 0,
+            boxSizing: 'border-box',
+            width: '100%',
+            // apply the computed minHeight only on md+
+            minHeight: isMdUp ? expenseMinHeight : 'auto',
+            // allow internal scrolling if content is larger than minHeight
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <SpendingGauge
             totalIncome={Number(totalIncome) | 0}
-            totalDeductions={Number(totalDeductions)| 0}
+            totalDeductions={Number(totalDeductions) | 0}
             totalExpenses={Number(totalExpenses) | 0}
-            />
+          />
+        </Paper>
       </Box>
     </Box>
   );
