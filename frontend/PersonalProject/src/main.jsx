@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import ReactDOM from 'react-dom/client';
 import App from "./App";
 import { RouterProvider } from 'react-router-dom';
@@ -11,6 +11,14 @@ const Root = () => {
   const [mode, setMode] = useState('light');
   const theme = getTheme(mode);
   const router = getRouter(App, mode, setMode);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    console.log(savedTheme);
+    if (savedTheme) {
+      setMode(savedTheme);
+    }
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>

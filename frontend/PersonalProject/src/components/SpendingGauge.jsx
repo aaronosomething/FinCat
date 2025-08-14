@@ -50,6 +50,7 @@ function GaugePointer() {
 export default function SpendingGauge({ totalIncome = 0, totalDeductions = 0, totalExpenses = 0 }) {
 
     const theme = useTheme();
+    const netProfit = (totalIncome - totalDeductions - totalExpenses)
 
     const { ratio, display, gaugeValue } = useMemo(() => {
         const netIncome = Number(totalIncome || 0) - Number(totalDeductions || 0);
@@ -115,13 +116,14 @@ export default function SpendingGauge({ totalIncome = 0, totalDeductions = 0, to
                 sx={{ color: textColor, fontWeight: 600, textAlign: 'center', mt: -4}}
             >
                 You are spending {display} of your earned income
+                
             </Typography>
             <Typography
                 variant="subtitle1"
                 color="text.secondary"
                 sx={{ textAlign: 'center', mt: 1 }}
             >
-                Based on income: ${totalIncome}, deductions: ${totalDeductions}, and expenses: ${totalExpenses}.
+                Based on income, deductions, and expenses, you have ${netProfit} to save/invest
             </Typography>
         </Box>
     );

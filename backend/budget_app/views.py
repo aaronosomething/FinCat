@@ -9,11 +9,12 @@ from .models import Income, Expense, Deduction, CostOfLiving
 from .serializers import (
     IncomeSerializer, ExpenseSerializer, DeductionSerializer, CostOfLivingSerializer
 )
+from user_app.views import TokenReq
 
 
-class TokenReq(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+# class TokenReq(APIView):
+#     authentication_classes = [TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
 
 
 # --- INCOME VIEWS ---

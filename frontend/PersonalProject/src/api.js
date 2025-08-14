@@ -8,12 +8,12 @@ const BASE_URL = "http://127.0.0.1:8000/api/";
 // axios instance
 export const api = axios.create({
     baseURL: BASE_URL,
-
+    withCredentials: true,
 })
 
 
 export const registerUser = async (email, password) => {
-    console.log("Request has reached the registerUser func in api.js and is passing", {email}, {password})
+    console.log("Request has reached the registerUser func in api.js and is passing", { email }, { password })
     const response = await api.post("users/signup/", { email, password });
     console.log("request has made it back from the api")
     console.log('registerUser response data', response.data);
@@ -34,14 +34,14 @@ export const registerUser = async (email, password) => {
 }
 
 export const loginUser = async (email, password) => {
-    console.log("Request has reached the loginUser func in api.js and is passing", {email}, {password})
-    const response = await api.post("users/login/", { email, password});
+    console.log("Request has reached the loginUser func in api.js and is passing", { email }, { password })
+    const response = await api.post("users/login/", { email, password });
     console.log("request has made it back from the api")
     if (response.status === 200) {
-        const { user, token} = response.data;
-        localStorage.setItem("token", token);
-        api.defaults.headers.common["Authorization"] = `Token ${token}`
-        return user;
+        // const { user, token} = response.data;
+        // localStorage.setItem("token", token);
+        // api.defaults.headers.common["Authorization"] = `Token ${token}`
+        return response.data.user;
     }
 
     // error case
@@ -66,21 +66,26 @@ export const logoutUser = async () => {
 }
 
 
-// Check if auth token exists clientside already
-export const userConfirmation = async() => {
-    console.log('userConfirmation()')
-    const token = localStorage.getItem("token");
-    if (token) {
-        console.log('got token ', token)
-        api.defaults.headers.common["Authorization"] = `Token ${token}`
+// Check if auth token exists clientside already UPDATE THIS
+export const userConfirmation = async () => {
+    try {
+        console.log('userConfirmation()')
+        const token = localStorage.getItem("token");
+        if (token) {
+            console.log('got token ', token)
+            api.defaults.headers.common["Authorization"] = `Token ${token}`
+        } else {
+            delete api.defaults.headers.common["Authorization"];
+        }
         // get basic user info and the default user data we want to display
         const response = await api.get("users/")
         if (response.status === 200) {
             console.log('made api call', response.data.user)
-            return response.data.user;
+            return response.data.user ?? response.data;
         }
-        console.log('userConfirmation returned response other than 200', response.data);
+    } catch (err) {
+        // ignore and return null
+        console.warn('userConfirmation failed', err?.response?.status, err?.message);
     }
-    console.log('userConfirmation error');
     return null;
-}
+};

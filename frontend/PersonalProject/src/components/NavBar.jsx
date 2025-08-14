@@ -29,6 +29,11 @@ const drawerWidth = 90;
 const Navbar = ({ user, setUser, mode, setMode }) => {
     const handleToggleDarkMode = () => {
         setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
+        if (mode == 'light') {
+            localStorage.setItem('theme', 'dark')
+        } else {
+            localStorage.setItem('theme', 'light')
+        }
     };
     const theme = useTheme();
     const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
@@ -105,7 +110,7 @@ const Navbar = ({ user, setUser, mode, setMode }) => {
                             onClick={handleUserMenuClick}
                         >
                             <Typography sx={{ mr: 1 }}>
-                                {user || 'Login / Create Account'}
+                                {user?.username || (typeof user === 'string' ? user : 'Login / Create Account')}
                             </Typography>
                             <IconButton color="inherit">
                                 <AccountCircle />

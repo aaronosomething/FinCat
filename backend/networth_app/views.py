@@ -2,15 +2,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
 
 from .models import Asset, Liability
 from .serializers import AssetSerializer, LiabilitySerializer
-
-class TokenReq(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+from user_app.views import TokenReq
 
 
 # --- ASSET VIEWS ---

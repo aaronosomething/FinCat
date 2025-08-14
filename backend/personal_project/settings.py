@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import logging
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,11 +27,22 @@ SECRET_KEY = 'django-insecure-2ol0dk_#a_niyuvee0cu03_6rg*1wj16*bcsm_elr&rel8bgmr
 DEBUG = True
 
 ALLOWED_HOSTS = []
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_HTTPONLY = True
+CORS_ALLOW_CREDENTIALS = True
+# Whitelist of CORS allowed origins
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173"
+]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'corsheaders',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -41,6 +53,7 @@ INSTALLED_APPS = [
     'goals_app',
     'budget_app',
     'networth_app',
+    'investment_app',
     'rest_framework',
     'rest_framework.authtoken',
 ]
@@ -55,12 +68,6 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-# Whitelist of CORS allowed origins
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:5173"
-# ]
-
-CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'personal_project.urls'
 
@@ -114,6 +121,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
        'DEFAULT_AUTHENTICATION_CLASSES': [
+           'user_app.authentication.HttpOnlyTokenAuthentication',
            'rest_framework.authentication.TokenAuthentication',
        ],
    }
@@ -141,3 +149,22 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'user_app.App_user'
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'loggers': {
+        'user_app.authentication': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'corsheaders': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}

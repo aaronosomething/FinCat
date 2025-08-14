@@ -13,11 +13,12 @@ from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
 from .models import Goal
 from .serializers import GoalSerializer
+from user_app.views import TokenReq
 
 
-class TokenReq(APIView):
-    authentication_classes = [TokenAuthentication]
-    permission_classes = [IsAuthenticated]
+# class TokenReq(APIView):
+#     authentication_classes = [TokenAuthentication]
+#     permission_classes = [IsAuthenticated]
 
 
 class All_goals(TokenReq):
