@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'budget_app',
     'networth_app',
     'investment_app',
+    'retire_app',
     'rest_framework',
     'rest_framework.authtoken',
 ]
