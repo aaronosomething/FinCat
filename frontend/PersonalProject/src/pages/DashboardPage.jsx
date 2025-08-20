@@ -5,6 +5,7 @@ import FavoriteGoalsCard from '../components/FavoriteGoalsCard';
 import GoalsPage from './GoalsPage';
 import InvestChartDashboard from '../components/InvestChartDashboard';
 import NetworthChartDashboard from '../components/NetworthChartDashbaord';
+import RetirementReadinessDashboard from '../components/RetirementReadinessDashboard';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ export default function DashboardPage() {
   return (
     <div>
       <Typography variant='h3' align="center">My Dashboard</Typography>
-      <Grid container spacing={3} justifyContent="center" pt={2} sx={{
+      <Grid container spacing={1} justifyContent="center" pt={2} sx={{
         justifyContent: 'space-evenly',
         alignItems: 'center'}}>
       {/* Box 1 */}
@@ -39,29 +40,15 @@ export default function DashboardPage() {
 
       {/* Box 3 */}
       <Grid item xs={6} sm={2} md={1}>
-        <Box onClick={handleNavigateToGoals} p={4}>
+        <Box onClick={handleNavigateToGoals} p={2}>
           <FavoriteGoalsCard/>
         </Box>
       </Grid>
 
       {/* Box 4 */}
       <Grid item xs={12} sm={6} md={3}>
-        <Box onClick={handleNavigateToRetirement}
-          sx={{
-            height: '300px',
-            width: '200px',
-            border: '2px dotted grey',
-            borderRadius: '8px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            boxSizing: 'border-box',
-            backgroundColor: 'lightgrey',
-            cursor: 'pointer',
-          }}
-        >
-          Retirement Readiness
+        <Box onClick={handleNavigateToRetirement} p={0}>
+          <RetirementReadinessDashboard />
         </Box>
       </Grid>
     </Grid>

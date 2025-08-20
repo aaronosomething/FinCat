@@ -17,7 +17,6 @@ import ResponsiveDrawer from './ResponsiveDrawer';
 import { useNavigate } from 'react-router-dom';
 import { Link } from "react-router-dom";
 import LogoDarkMode from '../assets/FinCat_darkmode.png';
-import LogoLightMode from '../assets/FinCat_lightmode.png';
 import { Alert, Snackbar } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import NightlightRound from '@mui/icons-material/NightlightRound';

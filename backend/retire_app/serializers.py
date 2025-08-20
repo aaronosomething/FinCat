@@ -4,7 +4,7 @@ from .models import RetirementPlan, RetirementIncomeSource
 class PlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = RetirementPlan
-        fields = ['id', 'current_age', 'retirement_age', 'projected_expenses', 'withdrawal_rate']
+        fields = ['id', 'current_age', 'retirement_age', 'projected_expenses', 'withdrawal_rate', 'readiness']
 
 class IncomeSerializer(serializers.ModelSerializer):
     class Meta:

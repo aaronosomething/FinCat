@@ -139,10 +139,16 @@ export default function NetworthChartDashboard() {
     }
 
     if (assetSeries.length === 0 && totals.totalAssets === 0 && totals.totalLiabilities === 0) {
-        return <Typography variant="body2">No data to display.</Typography>;
+        return (
+            <Paper sx={{ width: "100%", minHeight: "250px", mb: 2, p: 2, alignContent: "center" }}>
+                <Typography variant="h5">Net Worth</Typography>
+                <Box sx={{ height: 320, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    No Net Worth data to display. Click here to get started!
+                </Box>
+            </Paper>
+        )
     }
 
-    // --- actual UI ---
     return (
         <Paper sx={{ width: "100%", mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 1 }}>

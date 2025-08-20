@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { Navigate, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -14,21 +15,26 @@ import {
   FormControlLabel,
   FormControl,
   FormLabel,
+  Checkbox,
 } from "@mui/material";
 import { Delete } from "@mui/icons-material";
 import AddRemToggle from "../components/AddRemToggle";
 import InvestChart from "../components/InvestChart";
+import MarketPerformance from "../components/MarketPerformace";
 import {
   getInvestments,
   addInvestment,
   deleteInvestment,
   updateInvestment,
 } from "../investment_api";
+import { getPlan } from "../retire_api";
 
 
 export default function InvestmentPage() {
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
+
+  const navigate = useNavigate();
 
   // UI mode for adding/removing
   const [isRemoveMode, setIsRemoveMode] = useState(false);
@@ -42,12 +48,25 @@ export default function InvestmentPage() {
   const [selected, setSelected] = useState(null);
 
   // Chart end year
-  const [chartEndYear, setChartEndYear] = useState(20);
+  const [chartEndYear, setChartEndYear] = useState(30);
 
   // Refs for layout (if you want to measure)
   const investmentsRef = useRef(null);
   const chartRef = useRef(null);
   const detailsRef = useRef(null);
+
+  // Plan (to compute nest egg)
+  const [plan, setPlan] = useState({
+    current_age: "",
+    retirement_age: "",
+    projected_expenses: "",
+    withdrawal_rate: "",
+    readiness: 0,
+  });
+
+  // whether to show the retirement goal on the chart
+  const [showRetirementGoal, setShowRetirementGoal] = useState(false);
+
 
   useEffect(() => {
     loadAll();
@@ -56,6 +75,18 @@ export default function InvestmentPage() {
   const loadAll = async () => {
     const data = await getInvestments();
     setInvestments(data || []);
+    try {
+      const p = await getPlan();
+      setPlan({
+        current_age: p?.current_age ?? "",
+        retirement_age: p?.retirement_age ?? "",
+        projected_expenses: p?.projected_expenses ?? "",
+        withdrawal_rate: p?.withdrawal_rate ?? "",
+        readiness: typeof p?.readiness !== "undefined" && p?.readiness !== null ? Number(p.readiness) : 0,
+      });
+    } catch (err) {
+      console.error("Failed to fetch plan:", err);
+    }
     // if selected was deleted or missing, clear selection
     if (selectedId && !(data || []).find((d) => d.id === selectedId)) {
       setSelectedId(null);
@@ -65,6 +96,12 @@ export default function InvestmentPage() {
       if (fresh) setSelected(fresh);
     }
   };
+
+  // Nest egg = (projected monthly expenses × 12) / (withdrawal_rate / 100)
+  const monthlyExpensesNum = Number(plan.projected_expenses) || 0;
+  const withdrawalRateNum = Number(plan.withdrawal_rate) || 0;
+  const nestEgg =
+    withdrawalRateNum > 0 ? (monthlyExpensesNum * 12) / (withdrawalRateNum / 100) : null;
 
   // --- Add / Delete handlers ---
   const handleAddInvestment = async () => {
@@ -319,6 +356,7 @@ export default function InvestmentPage() {
   const gridTemplateAreas = {
     xs: `
       "header"
+      "market_data"
       "investments"
       "invest_chart"
       "invest_details"
@@ -326,6 +364,7 @@ export default function InvestmentPage() {
     `,
     md: `
       "header header header"
+      "market_data invest_chart invest_chart"
       "investments invest_chart invest_chart"
       "invest_details invest_details invest_details"
       "footer footer footer"
@@ -355,9 +394,27 @@ export default function InvestmentPage() {
           onClick={() => setIsRemoveMode((s) => !s)}
         />
       </Box>
+      {/* Market Data */}
+      <Box sx={{
+        gridArea: "market_data",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-start",
+        alignItems: "start",
+        alignSelf: "start",
+      }}>
+        <MarketPerformance />
+      </Box>
 
       {/* Investments list */}
-      <Box sx={{ gridArea: "investments" }}>
+      <Box sx={{
+         gridArea: "investments",
+         display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-start",
+        alignItems: "start",
+        alignSelf: "start", 
+         }}>
         <Paper
           elevation={3}
           sx={{
@@ -376,6 +433,7 @@ export default function InvestmentPage() {
           {isRemoveMode && renderAddForm()}
         </Paper>
       </Box>
+
 
       {/* Chart */}
       <Box sx={{ gridArea: "invest_chart" }}>
@@ -402,7 +460,29 @@ export default function InvestmentPage() {
             </Box>
           </Box>
 
-          <InvestChart investments={investments} endYear={chartEndYear} />
+          <InvestChart
+            investments={investments}
+            endYear={chartEndYear}
+            retirementGoal={nestEgg}
+            showRetirementGoal={showRetirementGoal}
+          />
+
+          {/* Checkbox + Adjust link */}
+          <Box display="flex" alignItems="center" justifyContent="flex-start" gap={2} mt={1}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showRetirementGoal}
+                  onChange={(e) => setShowRetirementGoal(e.target.checked)}
+                />
+              }
+              label="Show Retirement Goal"
+            />
+
+            <Button variant="text" onClick={() => navigate("/retire")}>
+              Adjust This
+            </Button>
+          </Box>
         </Paper>
       </Box>
 
@@ -420,7 +500,7 @@ export default function InvestmentPage() {
           ) : (
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <Box display="flex" flexDirection="column" gap={2}>
+                <Box display="flex" flexDirection="column" gap={2} sx={{ width: 340 }}>
                   <TextField
                     label="Investment name"
                     value={selected.investment_name || ""}
@@ -452,7 +532,6 @@ export default function InvestmentPage() {
                     onChange={(e) => updateSelectedField("rate_of_return", e.target.value)}
                     type="number"
                     size="small"
-                    helperText="Enter percent like 9.4 (stored as 9.4). Calculations convert to decimal."
                     slotProps={{ input: { inputMode: "decimal" } }}
                   />
                 </Box>
@@ -496,7 +575,6 @@ export default function InvestmentPage() {
                           onChange={(e) =>
                             updateSelectedField("contribution_timeline_years", e.target.value)
                           }
-                          // replaced deprecated InputProps with slotProps.input
                           slotProps={{ input: { min: 0, max: 100, inputMode: "numeric" } }}
                         />
                         <Typography>years</Typography>

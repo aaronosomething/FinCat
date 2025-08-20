@@ -3,6 +3,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from django.http import JsonResponse
+import requests
 
 from .models import RetirementPlan, RetirementIncomeSource
 from .serializers import PlanSerializer, IncomeSerializer
@@ -113,3 +115,24 @@ class RetirementIncomeBulkImport(TokenReq):
         # Return the refreshed list of incomes (so frontend can update without extra GET)
         refreshed = RetirementIncomeSource.objects.filter(user=user)
         return Response(IncomeSerializer(refreshed, many=True).data, status=status.HTTP_200_OK)
+    
+
+class InflationData(TokenReq):
+    api_key = 'eba677f19bc483233c697a4e694c568c'
+    url = f'https://api.stlouisfed.org/fred/series/observations?series_id=FPCPITOTLZGUSA&api_key={api_key}&file_type=json'
+
+    def get(self, request):
+        response = requests.get(self.url)
+        data = response.json()
+
+        # Extracting the observations
+        observations = data.get('observations', [])
+        values = [float(obs['value']) for obs in observations if obs['value']]
+
+        # Calculating the average value
+        if values:
+            average_value = round(sum(values) / len(values), 3)
+        else:
+            average_value = 0.0
+
+        return JsonResponse({'average_value': average_value})

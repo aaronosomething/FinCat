@@ -1,4 +1,3 @@
-// src/pages/RetirementPage.jsx
 import React, { useEffect, useState, useRef } from "react";
 import {
   Box,
@@ -9,6 +8,11 @@ import {
   IconButton,
   useMediaQuery,
   TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from "@mui/material";
 import { Delete } from "@mui/icons-material";
 import AddRemToggle from "../components/AddRemToggle";
@@ -20,8 +24,10 @@ import {
   postRetIncome,
   deleteRetIncome,
   postRetIncomeBulk,
+  getInflationData,
 } from "../retire_api";
 import { getInvestments } from "../investment_api";
+
 
 export default function RetirementPage() {
   const theme = useTheme();
@@ -35,6 +41,7 @@ export default function RetirementPage() {
     retirement_age: "",
     projected_expenses: "",
     withdrawal_rate: "",
+    readiness: 0, // <-- new field to track server-side readiness value
   });
   const [isSavingPlan, setIsSavingPlan] = useState(false);
 
@@ -77,6 +84,7 @@ export default function RetirementPage() {
         retirement_age: p?.retirement_age ?? "",
         projected_expenses: p?.projected_expenses ?? "",
         withdrawal_rate: p?.withdrawal_rate ?? "",
+        readiness: typeof p?.readiness !== "undefined" && p?.readiness !== null ? Number(p.readiness) : 0,
       });
     } catch (err) {
       console.error("Failed to fetch plan:", err);
@@ -93,7 +101,6 @@ export default function RetirementPage() {
   const handleSavePlan = async () => {
     setIsSavingPlan(true);
     try {
-      // Prepare payload matching PlanSerializer
       const payload = {
         current_age: plan.current_age === "" ? null : Number(plan.current_age),
         retirement_age: plan.retirement_age === "" ? null : Number(plan.retirement_age),
@@ -101,6 +108,8 @@ export default function RetirementPage() {
           plan.projected_expenses === "" ? null : Number(plan.projected_expenses),
         withdrawal_rate:
           plan.withdrawal_rate === "" ? null : Number(plan.withdrawal_rate),
+        // send readiness to backend (same percentage shown by RetirementReadiness)
+        readiness: retPercentage,
       };
       await updatePlan(payload);
 
@@ -169,6 +178,20 @@ export default function RetirementPage() {
   const projectedExpenses = Number(plan.projected_expenses || 0);
   const rawCoverage = projectedExpenses > 0 ? (totalMonthlyIncome / projectedExpenses) * 100 : 0;
   const retPercentage = Math.round(Math.min(Math.max(rawCoverage, 0), 100));
+
+  // --- Small addition: compute and format the "Nest Egg" wording shown left of Save ---
+  const monthlyExpensesNum = Number(plan.projected_expenses) || 0;
+  const withdrawalRateNum = Number(plan.withdrawal_rate) || 0;
+  const nestEgg =
+    withdrawalRateNum > 0 ? (monthlyExpensesNum * 12) / (withdrawalRateNum / 100) : null;
+  const formattedNestEgg =
+    nestEgg !== null
+      ? `$${Number(nestEgg).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
+      : "—";
+  const displayRetAge = plan.retirement_age === "" ? "—" : plan.retirement_age;
+  const displayWithdrawalRate =
+    plan.withdrawal_rate === "" ? "—" : `${plan.withdrawal_rate}%`;
+  // --- end addition ---
 
   // only digits allowed helper
   const onlyDigits = (s) => /^\d*$/.test(s);
@@ -326,6 +349,70 @@ export default function RetirementPage() {
     });
   }, [incomes]);
 
+  // ---------------- Inflation / Purchasing Power Calculator dialog ----------------
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [calcPresentAmount, setCalcPresentAmount] = useState(""); // string so typing is smooth
+  const [inflationAvg, setInflationAvg] = useState(null); // percent number, e.g. 2.5
+  const [calcFutureValue, setCalcFutureValue] = useState(0);
+  const [isFetchingInflation, setIsFetchingInflation] = useState(false);
+
+  const currentYear = new Date().getFullYear();
+  const numericCurrentAge = Number(plan.current_age) || 0;
+  const numericRetAge = Number(plan.retirement_age) || 0;
+  const yearsToRetire = numericRetAge > numericCurrentAge ? numericRetAge - numericCurrentAge : 0;
+  const targetYear = currentYear + yearsToRetire;
+
+  const openCalculator = async () => {
+    setCalcOpen(true);
+    // fetch inflation
+    try {
+      setIsFetchingInflation(true);
+      const resp = await getInflationData();
+      const avg = resp?.average_value ?? null;
+      setInflationAvg(avg);
+    } catch (err) {
+      console.error("Failed to fetch inflation data:", err);
+      setInflationAvg(null);
+    } finally {
+      setIsFetchingInflation(false);
+    }
+  };
+
+  const closeCalculator = () => {
+    setCalcOpen(false);
+    // keep present amount so the user can re-open and continue typing if desired
+  };
+
+  // Recalculate future value whenever present amount, inflationAvg, or yearsToRetire changes
+  useEffect(() => {
+    const p = parseFloat(calcPresentAmount);
+    if (isNaN(p) || p <= 0) {
+      setCalcFutureValue(0);
+      return;
+    }
+
+    const inflationRate = Number(inflationAvg) || 0; // percent per year
+    const years = yearsToRetire || 0;
+
+    // If years == 0, future value is same as present (no inflation growth to apply)
+    if (years === 0) {
+      setCalcFutureValue(Number(p.toFixed(2)));
+      return;
+    }
+
+    // future_value = present * (1 + inflationRate/100) ** years
+    const fv = p * Math.pow(1 + inflationRate / 100, years);
+    setCalcFutureValue(Number(fv.toFixed(2)));
+  }, [calcPresentAmount, inflationAvg, yearsToRetire]);
+
+  const handleUpdateProjectedExpenses = () => {
+    // Replace the projected_expenses with the computed future value
+    setPlan((s) => ({ ...s, projected_expenses: String(calcFutureValue) }));
+    setCalcOpen(false);
+  };
+
+  // ---------------- End calculator ----------------
+
   return (
     <Box
       sx={{
@@ -386,14 +473,21 @@ export default function RetirementPage() {
               slotProps={{ htmlInput: { inputMode: "numeric", pattern: "\\d*" } }}
             />
 
-            {/* expenses and withdrawal_rate: allow decimals; use inputMode decimal so mobile keyboards show decimal */}
-            <TextField
-              label="Projected monthly expenses (post-retirement)"
-              value={plan.projected_expenses}
-              onChange={handlePlanFieldChange("projected_expenses")}
-              type="text"
-              slotProps={{ htmlInput: { inputMode: "decimal" } }}
-            />
+            {/* Projected expenses + Calculate button placed in a row */}
+            <Box display="flex" gap={1} alignItems="center">
+              <TextField
+                label="Projected monthly expenses (post-retirement)"
+                value={plan.projected_expenses}
+                onChange={handlePlanFieldChange("projected_expenses")}
+                type="text"
+                slotProps={{ htmlInput: { inputMode: "decimal" } }}
+                sx={{ flex: 1 }}
+              />
+
+              <Button variant="outlined" onClick={openCalculator} sx={{ height: 40 }}>
+                Calculate
+              </Button>
+            </Box>
 
             <TextField
               label="Withdrawal rate (%)"
@@ -403,14 +497,71 @@ export default function RetirementPage() {
               slotProps={{ htmlInput: { inputMode: "decimal" } }}
             />
 
-            <Box display="flex" justifyContent="flex-end" mt={1}>
+            {/* <-- Updated: add Typography left of Save showing nest egg requirement --> */}
+            <Box display="flex" justifyContent="flex-end" alignItems="center" mt={1} gap={2}>
+              <Typography variant="body2" sx={{ maxWidth: 520 }}>
+                In order to retire at {displayRetAge} with a {displayWithdrawalRate} withdrawal rate, you will need a {formattedNestEgg} Nest Egg.
+              </Typography>
+
               <Button onClick={handleSavePlan} variant="contained" disabled={isSavingPlan}>
                 Save
               </Button>
             </Box>
+            {/* <-- end update --> */}
           </Box>
         </Paper>
       </Box>
+
+      {/* Calculator Dialog */}
+      <Dialog open={calcOpen} onClose={closeCalculator}>
+        <DialogTitle>Inflation / Purchasing Power Calculator</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Enter an amount below to see how much you'll need at retirement to match that purchasing power today.
+          </DialogContentText>
+
+          <Box component="form" sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+            <TextField
+              autoFocus
+              label={`Amount in ${currentYear}`}
+              value={calcPresentAmount}
+              onChange={(e) => setCalcPresentAmount(e.target.value)}
+              type="text"
+              slotProps={{ htmlInput: { inputMode: "decimal" } }}
+            />
+
+            <Box>
+              <Typography variant="body1" gutterBottom>
+                {calcPresentAmount === "" || Number(calcPresentAmount) === 0
+                  ? `Enter an amount in ${currentYear}`
+                  : `$${Number(calcPresentAmount).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} in ${currentYear} will have the same purchasing power as`}
+              </Typography>
+
+              <Typography variant="h5" sx={{ mt: 1, mb: 2 }}>
+                {calcFutureValue > 0
+                  ? `$${calcFutureValue.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })} in ${targetYear}`
+                  : `0.00 in ${targetYear}`}
+              </Typography>
+
+              <Typography variant="caption" sx={{ display: "block", mt: 1, mb: -2 }}>
+                This information is based on the average annual inflation from 1960-2024 of {inflationAvg !== null ? `${inflationAvg}%` : "—"}, courtesy of the Federal Reserve Bank of St. Louis.
+              </Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCalculator}>Cancel</Button>
+          <Button onClick={handleUpdateProjectedExpenses} disabled={calcFutureValue === 0}>
+            Update
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Retirement Income Sources */}
       <Box sx={{ gridArea: "ret_income" }}>

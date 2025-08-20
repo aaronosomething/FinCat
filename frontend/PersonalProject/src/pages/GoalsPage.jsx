@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions, useTheme, Paper, Grid,
+  TextField,
 } from '@mui/material';
 import Grow from '@mui/material/Grow';
 import AddRemToggle from '../components/AddRemToggle';
@@ -107,7 +108,7 @@ export default function GoalsPage() {
           )}
           {showNewLine && !isLongTerm && (
             <Box mt={2} display="flex" gap={1}>
-              <input
+              <TextField
                 placeholder="Enter new goal"
                 value={newGoalText}
                 onChange={e => setNewGoalText(e.target.value)}
@@ -142,7 +143,7 @@ export default function GoalsPage() {
           )}
           {showNewLine && isLongTerm && (
             <Box mt={2} display="flex" gap={1}>
-              <input
+              <TextField
                 placeholder="Enter new goal"
                 value={newGoalText}
                 onChange={e => setNewGoalText(e.target.value)}
