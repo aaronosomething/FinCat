@@ -9,7 +9,6 @@ import { getInvestments } from "../investment_api";
  *
  * Standalone dashboard component that:
  *  - fetches investments via getInvestments()
- *  - renders the same stacked-area logic as InvestChart.jsx
  *  - fixed to 20 years and shows header "Portfolio Growth Over The Next 20 Years"
  */
 

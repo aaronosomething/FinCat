@@ -12,10 +12,6 @@ from .serializers import (
 from user_app.views import TokenReq
 
 
-# class TokenReq(APIView):
-#     authentication_classes = [TokenAuthentication]
-#     permission_classes = [IsAuthenticated]
-
 
 # --- INCOME VIEWS ---
 class IncomeListCreate(TokenReq):

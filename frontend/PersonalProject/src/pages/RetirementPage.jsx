@@ -684,6 +684,7 @@ export default function RetirementPage() {
               href="https://www.ssa.gov/OACT/quickcalc/"
               target="_blank"
               rel="noreferrer"
+              color="primary"
               sx={{ textDecoration: "underline", cursor: "pointer" }}
             >
               How much Social Security will I receive?

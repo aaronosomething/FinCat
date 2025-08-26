@@ -9,6 +9,8 @@ import requests
 from .models import RetirementPlan, RetirementIncomeSource
 from .serializers import PlanSerializer, IncomeSerializer
 from user_app.views import TokenReq
+import os
+from dotenv import load_dotenv
 
 class RetirementPlanView(TokenReq):
     def get(self, request):
@@ -61,8 +63,8 @@ class IncomeDelete(TokenReq):
 
 class RetirementIncomeBulkImport(TokenReq):
     """
-    Accepts a list of { income_source, age_available, amount } objects.
-    Validates via IncomeSerializer(many=True), then bulk creates new rows and bulk_updates existing ones.
+    Accepts a list of { income_source, age_available, amount }.
+    Validates via IncomeSerializer, then bulk creates new rows and bulk_updates existing ones.
     """
     def post(self, request):
         data = request.data
@@ -118,7 +120,7 @@ class RetirementIncomeBulkImport(TokenReq):
     
 
 class InflationData(TokenReq):
-    api_key = 'eba677f19bc483233c697a4e694c568c'
+    api_key = os.getenv('INFLATION_KEY')
     url = f'https://api.stlouisfed.org/fred/series/observations?series_id=FPCPITOTLZGUSA&api_key={api_key}&file_type=json'
 
     def get(self, request):

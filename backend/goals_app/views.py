@@ -16,10 +16,6 @@ from .serializers import GoalSerializer
 from user_app.views import TokenReq
 
 
-# class TokenReq(APIView):
-#     authentication_classes = [TokenAuthentication]
-#     permission_classes = [IsAuthenticated]
-
 
 class All_goals(TokenReq):
     def get(self, request):

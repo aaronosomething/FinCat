@@ -155,14 +155,12 @@ export default function BudgetPage() {
           alignItems="center"
           mb={1}
           sx={{
-            // Important for preventing content from expanding the paper width
             width: '100%',
             minWidth: 0,
           }}
         >
           <Typography
             sx={{
-              // allow ellipsis rather than pushing parent wider
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -178,7 +176,6 @@ export default function BudgetPage() {
             alignItems="center"
             gap={1}
             sx={{
-              // right side should not force wrapping of the whole row
               flexShrink: 0,
               whiteSpace: 'nowrap',
               ml: 1,
@@ -205,7 +202,6 @@ export default function BudgetPage() {
       sx={{
         flexWrap: 'wrap',
         alignItems: 'center',
-        // ensure form doesn't force parent wider
         width: '100%',
       }}
     >
@@ -216,7 +212,6 @@ export default function BudgetPage() {
         size="small"
         variant="outlined"
         sx={{
-          // responsive width: full on xs, fixed on sm+
           width: { xs: '100%', sm: 160 },
           flexShrink: 0,
         }}
@@ -237,7 +232,6 @@ export default function BudgetPage() {
         onClick={onAdd}
         variant="contained"
         sx={{
-          // keep button size stable
           height: 40,
           flexShrink: 0,
         }}
@@ -267,6 +261,7 @@ export default function BudgetPage() {
           md: `
             "header header"
             "income expenses"
+            "deductions expenses"
             "deductions chart"
             "footer footer"
           `,
@@ -290,7 +285,6 @@ export default function BudgetPage() {
             p: 2,
             boxSizing: 'border-box',
             width: '100%',
-            // allow the paper to grow vertically but don't force a minHeight on xs
             minHeight: isMdUp ? undefined : 'auto',
           }}
           ref={incomePaperRef}
@@ -344,7 +338,7 @@ export default function BudgetPage() {
         </Paper>
       </Box>
 
-      {/* Footer */}
+      {/* Chart */}
       <Box sx={{ gridArea: 'chart', display: 'flex', textAlign: 'center', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
         <Paper
           elevation={3}
@@ -356,7 +350,6 @@ export default function BudgetPage() {
             // apply the computed minHeight only on md+
             minHeight: isMdUp ? expenseMinHeight : 'auto',
             // allow internal scrolling if content is larger than minHeight
-            overflow: 'auto',
             display: 'flex',
             flexDirection: 'column',
           }}

@@ -6,13 +6,16 @@ from .models import Investment
 from .serializers import InvestmentSerializer
 from user_app.views import TokenReq
 from django.db.models import Sum
+import os
+from dotenv import load_dotenv
+
 
 class InvestmentListCreate(TokenReq):
     def get(self, request):
         investments = Investment.objects.filter(user=request.user)
         serializer = InvestmentSerializer(investments, many=True)
         return Response(serializer.data)
-    
+
     def post(self, request):
         data = request.data.copy()
         serializer = InvestmentSerializer(data=data)
@@ -41,19 +44,19 @@ class InvestmentDetail(TokenReq):
         investment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 class InvestmentSum(TokenReq):
     def get(self, request):
         # print("at the InvestmentSum View")
-        total_value = Investment.objects.filter(user=request.user).aggregate(
-            total=Sum("value")
-        )["total"] or 0
+        total_value = (
+            Investment.objects.filter(user=request.user).aggregate(total=Sum("value"))[
+                "total"
+            ]
+            or 0
+        )
         # print("total Value", total_value)
         return Response({"total_investment_value": total_value})
-    
 
-## Investment Queries
-
-# views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -61,28 +64,56 @@ import requests
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 
-API_KEY = "2FJNUI3WOVC3VPD2" 
+API_KEY = os.getenv('MARKET_KEY') 
 
-# Helper: find the timeseries block (keys differ for stock vs crypto responses)
-def extract_timeseries(json_resp: Dict) -> Optional[Dict]:
-    # look for any key that contains "Time Series" (stock) or "Time Series (Digital Currency)" (crypto)
-    for k, v in json_resp.items():
-        if "Time Series" in k:
-            return v
-    return None
 
-# Helper: get the price number from a single timeseries row (handles common AV field names)
+def build_fmp_url_for_symbol(
+    symbol: str, is_index: bool = False, is_crypto: bool = False
+) -> str:
+
+    base = "https://financialmodelingprep.com/api/v3"
+    if is_crypto:
+        return f"{base}/historical-price-eod/light/{symbol}"
+    if is_index:
+        return f"{base}/historical-price-full/index/{symbol}"
+    return f"{base}/historical-price-full/{symbol}"
+
+
+def parse_historical_to_dict(json_resp: Dict) -> Optional[Dict[str, Dict]]:
+    """
+    FMP historical responses have a top-level 'historical' list with entries that
+    contain at least 'date' and 'close' (or 'adjClose').
+    This returns a dict keyed by 'YYYY-MM-DD' -> row dict for quick lookup.
+    """
+    if not isinstance(json_resp, dict):
+        return None
+    # FMP uses key 'historical' (array of objects)
+    hist = (
+        json_resp.get("historical")
+        or json_resp.get("historicalPrice")
+        or json_resp.get("historicalData")
+    )
+    if not hist or not isinstance(hist, list):
+        return None
+    out = {}
+    for row in hist:
+        d = row.get("date")
+        if d:
+            out[d] = row
+    return out if out else None
+
+
 def price_from_row(row: Dict) -> Optional[float]:
-    # common keys:
-    # - TIME_SERIES_DAILY: "4. close"
-    # - DIGITAL_CURRENCY_DAILY: "4a. close (USD)"
-    for candidate in ("4. close", "5. adjusted close", "4a. close (USD)", "close"):
+    """
+    Extract a numeric price from a FMP historical row. Prefer 'close', then 'adjClose', then try numeric values.
+    """
+    for candidate in ("close", "adjClose", "adj_close", "adjclose", "closePrice"):
         if candidate in row:
             try:
                 return float(row[candidate])
             except Exception:
                 return None
-    # fallback: try to find any numeric-looking value in row
+    # fallback: try any numeric value
     for v in row.values():
         try:
             return float(v)
@@ -90,20 +121,24 @@ def price_from_row(row: Dict) -> Optional[float]:
             continue
     return None
 
-# Helper: given a timeseries dict keyed by "YYYY-MM-DD" strings, find the price at nearest date <= target_date
-def find_price_on_or_before(timeseries: Dict[str, Dict], target_date: datetime.date) -> Optional[float]:
-    # convert keys to dates and sort descending
+
+def find_price_on_or_before(
+    timeseries: Dict[str, Dict], target_date: datetime.date
+) -> Optional[float]:
     try:
-        available_dates = sorted([datetime.strptime(d, "%Y-%m-%d").date() for d in timeseries.keys()], reverse=True)
+        available_dates = sorted(
+            [datetime.strptime(d, "%Y-%m-%d").date() for d in timeseries.keys()],
+            reverse=True,
+        )
     except Exception:
         return None
     for dt in available_dates:
         if dt <= target_date:
-            row = timeseries[dt.strftime("%Y-%m-%d")]
-            return price_from_row(row)
+            row = timeseries.get(dt.strftime("%Y-%m-%d"))
+            return price_from_row(row) if row else None
     return None
 
-# percent change helper (returns None if cannot compute)
+
 def pct_change(new: float, old: float) -> Optional[float]:
     try:
         if old == 0:
@@ -112,72 +147,139 @@ def pct_change(new: float, old: float) -> Optional[float]:
     except Exception:
         return None
 
-class MarketGainsAPIView(TokenReq):
+
+class MarketGainsAPIView(APIView):
     """
-    GET: returns JSON with gain/loss percentages for VOO, QQQ, Dow (DIA), and Bitcoin
-    over the last Day / Week / Month / Year.
+    GET: returns JSON with gain/loss percentages for VOO, QQQ, DOW (DIA), and Bitcoin
+    over Day / Week / Month / Year. Preserves existing output shape.
     """
+
+    def fetch_crypto_timeseries(self, symbol: str, from_date: str) -> Optional[Dict[str, Dict]]:
+        """
+        Fetch crypto using the FMP EOD endpoint and normalize to dict[YYYY-MM-DD] -> row.
+        Returns a dict keyed by date or None on failure.
+        """
+        # light endpoint for eod data (documented)
+        url = "https://financialmodelingprep.com/stable/historical-price-eod/light"
+        params = {"symbol": symbol, "from": from_date}
+        if API_KEY:
+            params["apikey"] = API_KEY
+
+        try:
+            resp = requests.get(url, params=params, timeout=20)
+            print(f"[MarketGains:FMP:crypto] Requesting {resp.url} -> status {resp.status_code}")
+            # attempt JSON parse
+            try:
+                data = resp.json() if resp.headers.get("Content-Type", "").startswith("application/json") else None
+            except Exception:
+                data = None
+
+            if data is None:
+                return None
+
+            rows = None
+            if isinstance(data, list):
+                rows = data
+            elif isinstance(data, dict):
+                # common: {"symbol": "BTCUSD", "historical": [...]}
+                rows = data.get("historical") or data.get("data") or data.get("rows")
+                if rows is None:
+                    # fallback: if dict contains exactly one list value, use that
+                    for v in data.values():
+                        if isinstance(v, list):
+                            rows = v
+                            break
+
+            if not rows or not isinstance(rows, list):
+                return None
+
+            out = {}
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                date_str = row.get("date") or row.get("datetime") or row.get("timestamp")
+                if not date_str:
+                    continue
+                out[date_str] = row
+            return out if out else None
+
+        except Exception as exc:
+            print(f"[MarketGains:FMP:crypto] Exception fetching crypto timeseries: {exc}")
+            return None
+
+
     def get(self, request, *args, **kwargs):
-        # assets config: use TIME_SERIES_DAILY (non-premium) for ETFs, DIGITAL_CURRENCY_DAILY for BTC
         assets = {
-            "VOO": {"function": "TIME_SERIES_DAILY", "symbol": "VOO"},
-            "QQQ": {"function": "TIME_SERIES_DAILY", "symbol": "QQQ"},
-            "DOW JONES": {"function": "TIME_SERIES_DAILY", "symbol": "DIA"},  # use DIA ETF as proxy for Dow
-            "Bitcoin": {"function": "DIGITAL_CURRENCY_DAILY", "symbol": "BTC", "market": "USD"},
+            "VOO": {"symbol": "VOO", "type": "equity"},
+            "QQQ": {"symbol": "QQQ", "type": "equity"},
+            "DOW JONES": {"symbol": "DIA", "type": "equity"},  # ETF proxy
+            "Bitcoin": {"symbol": "BTCUSD", "type": "crypto"},
         }
 
         results = {}
-        now = datetime.utcnow().date()
+        now = datetime.now().date()
 
         for name, cfg in assets.items():
             try:
-                base = "https://www.alphavantage.co/query"
-                params = {
-                    "function": cfg["function"],
-                    "apikey": API_KEY,
-                    "symbol": cfg["symbol"],
-                }
-                # add market for crypto
-                if cfg.get("market"):
-                    params["market"] = cfg["market"]
+                is_crypto = cfg["type"] == "crypto"
+                is_index = cfg["type"] == "index"
+                symbol = cfg["symbol"]
 
-                # request more history for equities so Year target is available
-                if cfg["function"].startswith("TIME_SERIES"):
-                    params["outputsize"] = "full"
+                # --- CRYPTO PATH (only changed code) ---
+                if is_crypto:
+                    # Use the stable light EOD endpoint with a from param (1 year ago)
+                    one_year_ago = (now - timedelta(days=365)).strftime("%Y-%m-%d")
+                    ts = self.fetch_crypto_timeseries(symbol, one_year_ago)
 
-                resp = requests.get(base, params=params, timeout=20)
-                # log exact request URL & status for server-side debugging
-                print(f"[MarketGains] Requesting {resp.url} -> status {resp.status_code}")
+                    if not ts:
+                        results[name] = {
+                            "error": "Could not find historical rows in FMP crypto light response.",
+                        }
+                        continue
 
-                data = resp.json() if resp.headers.get("Content-Type", "").startswith("application/json") else None
-                if data is None:
-                    results[name] = {"error": "AlphaVantage returned non-JSON response.", "status_code": resp.status_code}
-                    continue
+                # --- EQUITY / ETF PATH (unchanged logic) ---
+                else:
+                    url = build_fmp_url_for_symbol(symbol, is_index=is_index, is_crypto=False)
+                    params = {}
+                    if API_KEY:
+                        params["apikey"] = API_KEY
+                    # keep the serietype parameter if your build expects it (harmless for equities)
+                    params["serietype"] = "line"
 
-                # quick diagnostics
-                debug_info = {}
-                for diag_key in ("Note", "Information", "Error Message"):
-                    if diag_key in data:
-                        debug_info[diag_key] = data.get(diag_key)
+                    resp = requests.get(url, params=params, timeout=20)
+                    print(f"[MarketGains:FMP:equity] Requesting {resp.url} -> status {resp.status_code}")
 
-                ts = extract_timeseries(data)
-                if not ts:
-                    debug_info["top_level_keys"] = list(data.keys())
-                    results[name] = {
-                        "error": "Could not find time series in AlphaVantage response.",
-                        "debug": debug_info,
-                    }
-                    continue
+                    data = None
+                    try:
+                        data = resp.json() if resp.headers.get("Content-Type", "").startswith("application/json") else None
+                    except Exception:
+                        data = None
 
-                # latest available date (most recent key)
-                available_dates = sorted(ts.keys(), reverse=True)
-                latest_date_str = available_dates[0]
+                    if data is None:
+                        results[name] = {
+                            "error": "FMP returned non-JSON response for equity.",
+                            "status_code": resp.status_code,
+                        }
+                        continue
+
+                    # use your existing parser for equities (expects dict with 'historical' list)
+                    ts = parse_historical_to_dict(data)
+                    if not ts:
+                        # include top-level keys for easier debugging
+                        debug_keys = list(data.keys()) if isinstance(data, dict) else []
+                        results[name] = {
+                            "error": "Could not find 'historical' data in FMP response for equity.",
+                            "debug": {"top_level_keys": debug_keys},
+                        }
+                        continue
+
+                # At this point `ts` is a dict keyed by 'YYYY-MM-DD' -> row
+                latest_date_str = sorted(ts.keys(), reverse=True)[0]
                 latest_price = price_from_row(ts[latest_date_str])
                 if latest_price is None:
                     results[name] = {"error": "Couldn't parse latest price for symbol."}
                     continue
 
-                # targets: 1 day, 7 days, 30 days, 365 days back from now (calendar days)
                 targets = {
                     "Day": now - timedelta(days=1),
                     "Week": now - timedelta(days=7),
@@ -190,13 +292,15 @@ class MarketGainsAPIView(TokenReq):
                     if past_price is None:
                         asset_out[label] = None
                     else:
-                        asset_out[label] = round(pct_change(latest_price, past_price) or 0.0, 4)
+                        ch = pct_change(latest_price, past_price)
+                        asset_out[label] = round(ch, 4) if ch is not None else None
 
                 results[name] = {
                     "as_of": latest_date_str,
                     "latest_price": round(latest_price, 6),
-                    "changes_pct": asset_out
+                    "changes_pct": asset_out,
                 }
+
             except Exception as e:
                 results[name] = {"error": f"Exception while fetching/parsing: {str(e)}"}
 
